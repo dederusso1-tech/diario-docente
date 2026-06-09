@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Início</a></li>
+        <li class="breadcrumb-item active">{{ escola.nome }}</li>
+    </ol>
+</nav>
+
+<div class="card card-gov p-4 border-start border-warning border-4">
+    <h5 class="fw-bold">📥 Carga de Dados do Sistema Central (SEEDUC-RJ)</h5>
+    <form action="/importar/{{ escola.id }}" method="POST" enctype="multipart/form-data">
+        <div class="input-group">
+            <input type="file" name="file" class="form-control" accept=".csv" required>
+            <button class="btn btn-warning text-dark btn-gov fw-bold" type="submit">Processar Matrículas</button>
+        </div>
+    </form>
+</div>
+
+<div class="card card-gov p-4 shadow-sm">
+    <h5 class="fw-bold text-secondary mb-3">📊 PLANILHA CONSOLIDADA (FREQUÊNCIA E RENDIMENTO)</h5>
+    
+    {% if not alunos %}
+        <div class="alert alert-secondary text-center p-4">Nenhum estudante matriculado. Importe a planilha acima.</div>
+    {% else %}
+        <div class="table-responsive" style="border: 1px solid #dee2e6; border-radius: 8px; background: white;">
+            <table class="table table-bordered align-middle mb-0 text-center" style="min-width: 800px; font-size: 0.9rem;">
+                <thead class="table-light">
+                    <tr style="border-bottom: 2px solid #dee2e6;">
+                        <th class="text-start" style="position: sticky; left: 0; background: #f8f9fa; min-width: 220px; z-index: 2;">Turma / Nome do Aluno</th>
+                        <th style="min-width: 60px; background: #fff3cd;" class="text-warning-dark fw-bold">Faltas</th>
+                        <th style="min-width: 60px; background: #e2f0d9;" class="text-success fw-bold">Média</th>
+                        
+                        {% for data in datas %}
+                            <th style="min-width: 50px;" title="Conteúdo: {{ conteudos[data] }}">{{ data }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alu in alunos %}
+                    <tr>
+                        <td class="text-start" style="position: sticky; left: 0; background: white; z-index: 1; border-right: 2px solid #dee2e6;">
+                            <span class="badge bg-secondary px-1.5 py-0.5 mb-1" style="font-size: 0.75rem;">{{ alu.turma }}</span><br>
+                            <span class="fw-bold text-dark">{{ alu.nome }}</span>
+                        </td>
+                        <td class="fw-bold {% if alu.total_faltas > 4 %}text-danger bg-danger-subtle{% else %}text-secondary{% endif %}">
+                            {{ alu.total_faltas }}
+                        </td>
+                        <td class="fw-bold {% if alu.media >= 6.0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.1f"|format(alu.media) }}
+                        </td>
+                        
+                        {% for dia in alu.historico %}
+                            <td class="fw-bold" style="font-size: 0.95rem; {% if dia.status == 'P' %}color: #2e7d32; background-color: #e8f5e9;{% elif dia.status == 'F' %}color: #c62828; background-color: #ffeeee;{% else %}color: #9e9e9e;{% endif %}">
+                                {{ dia.status }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if datas %}
+        <div class="mt-3 p-3 bg-light rounded border">
+            <h6 class="fw-bold text-secondary mb-2" style="font-size: 0.85rem;"><i class="bi bi-info-circle"></i> LEGENDA DO CONTEÚDO MINISTRADO POR DIA:</h6>
+            <div class="row row-cols-1 row-cols-sm-2 g-2">
+                {% for data in datas %}
+                    <div class="col small"><b>{{ data }}:</b> {{ conteudos[data] }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if alunos %}
+<div class="card card-gov p-4 mt-4 border-start border-success border-4">
+    <h5 class="text-success fw-bold">⏱️ Registro Diário de Frequência e Conteúdo</h5>
+    <form action="/fazer_chamada/{{ escola.id }}" method="POST">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label class="form-label fw-bold">Data da Aula:</label>
+                <input type="date" name="data_aula" class="form-control" value="{{ data_hoje }}" required>
+            </div>
+            <div class="col-md-8 mb-3">
+                <label class="form-label fw-bold">Conteúdo Programático:</label>
+                <input type="text" name="conteudo" class="form-control" placeholder="Ex: Matrizes, Funções, Redação" required>
+            </div>
+        </div>
+        
+        <h6 class="mt-2 fw-bold text-secondary mb-3 border-bottom pb-2">Marque quem FALTOU na aula de hoje:</h6>
+        <div class="row" style="max-height: 250px; overflow-y: auto;">
+            {% for alu in alunos %}
+            <div class="col-sm-6 mb-2">
+                <div class="form-check form-switch bg-light p-2 border rounded d-flex align-items-center justify-content-between">
+                    <label class="form-check-label text-dark" for="f_{{ alu.matricula }}">❌ Ausente: {{ alu.nome }}</label>
+                    <input class="form-check-input" type="checkbox" name="falta_aluno" value="{{ alu.matricula }}" id="f_{{ alu.matricula }}">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-success btn-gov w-100 mt-4 p-2.5">💾 Lançar no Excel do Diário</button>
+    </form>
+</div>
+
+<div class="card card-gov p-4 border-start border-primary border-4">
+    <h5 class="text-primary fw-bold">🎯 Lançamento de Avaliações Contínuas</h5>
+    <form action="/lancar_notas_bimestre/{{ escola.id }}" method="POST">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Selecione o Estudante:</label>
+            <select name="matricula" class="form-select">
+                {% for alu in alunos %}
+                <option value="{{ alu.matricula }}">{{ alu.nome }} (Turma {{ alu.turma }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="row">
+            <div class="col-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">Teste (0-10)</label>
+                <input type="number" step="0.1" min="0" max="10" name="teste" class="form-control" required value="0.0">
+            </div>
+            <div class="col-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">Prova (0-10)</label>
+                <input type="number" step="0.1" min="0" max="10" name="prova" class="form-control" required value="0.0">
+            </div>
+            <div class="col-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">Qualit. (0-10)</label>
+                <input type="number" step="0.1" min="0" max="10" name="qualitativo" class="form-control" required value="0.0">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-gov w-100 mt-4 p-2.5">💾 Gravar Avaliações</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card card-gov p-4 mx-auto mt-5" style="max-width:400px;">
+    <div class="text-center mb-4">
+        <h3 class="text-primary fw-bold">Portal do Professor</h3>
+        <small class="text-muted">Autenticação Integrada de Segurança</small>
+    </div>
+    <form method="POST" action="/login">
+        <div class="mb-3">
+            <label class="form-label">E-mail Cadastrado:</label>
+            <input type="email" name="email" class="form-control" placeholder="nome@escola.com" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Senha de Acesso:</label>
+            <input type="password" name="senha" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button class="btn btn-primary btn-gov w-100 p-2.5">Entrar no Painel</button>
+    </form>
+    <hr>
+    <div class="text-center">
+        <a href="/cadastro" class="text-decoration-none">Novo por aqui? Criar conta de docente</a>
+    </div>
+</div>
+{% endblock %}

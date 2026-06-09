@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card card-gov p-4 mb-4 bg-white text-dark border-start border-primary border-4">
+    <h4>Bem-vindo, Prof. {{ session['user_name'] }} 📋</h4>
+    <p class="text-muted mb-0">Esta é a sua área de trabalho unificada para controle de diários de classe.</p>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card card-gov p-4 h-100">
+            <h5 class="border-bottom pb-2 mb-3 fw-bold">🏫 Unidades de Ensino Vinculadas</h5>
+            {% if not escolas %}
+                <div class="alert alert-warning small">Você ainda não possui instituições cadastradas nesta conta.</div>
+            {% endif %}
+            <div class="list-group list-group-flush">
+                {% for school in escolas %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span class="fw-bold text-secondary">{{ school.nome }}</span>
+                        <a href="/escola/{{ school.id }}" class="btn btn-primary btn-sm btn-gov">Abrir Caderneta</a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card card-gov p-4 h-100">
+            <h5 class="border-bottom pb-2 mb-3 fw-bold">➕ Registrar Nova Unidade/CIEP</h5>
+            <form action="/add_escola" method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Nome Oficial da Instituição:</label>
+                    <input type="text" name="nome" class="form-control" placeholder="Ex: CIEP 205 Frei Agostinho Fíncias" required>
+                </div>
+                <button type="submit" class="btn btn-success btn-gov w-100">Instanciar Novo Diário</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
