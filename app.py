@@ -1,3 +1,14 @@
+def init_db():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # LINHA DE LIMPEZA TEMPORÁRIA (Apaga o histórico que deu erro)
+        cursor.execute('DROP TABLE IF EXISTS notas, diario_bordo, alunos, escolas, professores CASCADE;')
+        
+        cursor.execute('CREATE TABLE IF NOT EXISTS professores (id SERIAL PRIMARY KEY, nome TEXT, email TEXT UNIQUE, senha TEXT)')
+        cursor.execute('CREATE TABLE IF NOT EXISTS escolas (id SERIAL PRIMARY KEY, nome TEXT, professor_id INTEGER REFERENCES professores(id))')
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
 from psycopg2.extras import DictCursor
