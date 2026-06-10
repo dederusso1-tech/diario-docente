@@ -39,14 +39,15 @@ def home():
 
 def gerar_dados_escola(escola_id):
     try:
-        res_escola = supabase.table("escolas").select("*").eq("id", escola_id).eq("professor_id", session['user_id']).single().execute()
+        res_escola = supabase.table("escolas").select("*").eq("id", escola_id).single().execute()
         escola = res_escola.data
-        if not school_detail: return None, None, None, None, None
+        if not escola: return None, None, None, None
     except Exception as e:
-        return None, None, None, None, None
+        print(f"Erro ao buscar escola: {e}")
+        return None, None, None, None
         
     try:
-        res_diario = supabase.table("diario_bordo").select("data, conteudo").eq("escola_id", escola_id).order("data").execute()
+        res_diario = supabase.table("diario_bordo").select("data, conteudo").eq("escola_id", escola_id).execute()
         datas_chamadas = res_diario.data if res_diario.data else []
     except Exception as e:
         datas_chamadas = []
@@ -101,11 +102,9 @@ def gerar_dados_escola(escola_id):
 @app.route('/escola/<int:escola_id>')
 def school_detail(escola_id):
     if 'user_id' not in session: return redirect(url_for('login'))
-    escola_id = int(escola_id)
-    
     escola, alunos_com_planilha, listagem_datas, conteudos_datas = gerar_dados_escola(escola_id)
     if not escola:
-        return "Unidade Escolar não localizada ou Acesso Negado.", 403
+        return "Unidade Escolar nao localizada.", 404
 
     data_actual = datetime.now().strftime('%Y-%m-%d')
     return render_template('escola.html', escola=escola, alunos=alunos_com_planilha, 
@@ -114,25 +113,21 @@ def school_detail(escola_id):
 @app.route('/exportar_excel/<int:escola_id>')
 def exportar_excel(escola_id):
     if 'user_id' not in session: return redirect(url_for('login'))
-    escola_id = int(escola_id)
-    
     escola, alunos, datas, _ = gerar_dados_escola(escola_id)
     if not escola: return "Erro ao exportar dados.", 404
     
-    # Criando a estrutura da planilha
     linhas_planilha = []
     for alu in alunos:
         dados_aluno = {
-            'Matrícula': alu['matricula'],
+            'Matricula': alu['matricula'],
             'Nome do Aluno': alu['nome'],
             'Turma': alu['turma'],
             'Teste': alu['teste'],
             'Prova': alu['prova'],
             'Qualitativo': alu['qualitativo'],
-            'Média Final': alu['media'],
+            'Media Final': alu['media'],
             'Total Faltas': alu['total_faltas']
         }
-        # Adiciona colunas para cada dia de aula com a presença (P ou F)
         for hist in alu['historico']:
             dados_aluno[f"Aula {hist['data']}"] = hist['status']
             
@@ -140,20 +135,18 @@ def exportar_excel(escola_id):
         
     df = pd.DataFrame(linhas_planilha)
     
-    # Gerando o arquivo Excel em memória para download
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Diário de Classe')
+        df.to_excel(writer, index=False, sheet_name='Diario de Classe')
     output.seek(0)
     
-    nome_arquivo = f"Diario_{escola['nome'].replace(' ', '_')}_1Bimestre.xlsx"
-    return send_file(output, attachment_filename=nome_arquivo, as_attachment=True, 
+    nome_arquivo = f"Diario_Classe_CIEP_{escola_id}.xlsx"
+    return send_file(output, as_attachment=True, download_name=nome_arquivo,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/fazer_chamada/<int:escola_id>', methods=['POST'])
 def fazer_chamada(escola_id):
     if 'user_id' not in session: return redirect(url_for('login'))
-    escola_id = int(escola_id)
     data_aula = request.form['data_aula']
     conteudo = request.form['conteudo']
     faltosos = request.form.getlist('falta_aluno')
@@ -177,7 +170,6 @@ def fazer_chamada(escola_id):
 @app.route('/lancar_notas_bimestre/<int:escola_id>', methods=['POST'])
 def lancar_notas_bimestre(escola_id):
     if 'user_id' not in session: return redirect(url_for('login'))
-    escola_id = int(escola_id)
     mat = int(request.form['matricula'])
     teste = float(request.form['teste'])
     prova = float(request.form['prova'])
@@ -188,15 +180,14 @@ def lancar_notas_bimestre(escola_id):
             "matricula": mat, "bimestre": 1, "escola_id": escola_id, 
             "teste": teste, "prova": prova, "qualitativo": qual
         }, on_conflict="matricula,bimestre").execute()
-        flash("Avaliações lançadas.")
+        flash("Avaliacoes lancadas.")
     except Exception as e:
-        flash(f"Erro ao lançar notas: {e}")
+        flash(f"Erro ao lancar notas: {e}")
     return redirect(url_for('school_detail', escola_id=escola_id))
 
 @app.route('/importar/<int:escola_id>', methods=['POST'])
 def importar(escola_id):
     if 'user_id' not in session: return redirect(url_for('login'))
-    escola_id = int(escola_id)
     file = request.files['file']
     if file.filename == '': return redirect(url_for('school_detail', escola_id=escola_id))
     try:
@@ -241,11 +232,11 @@ def cadastro():
             supabase.table("professores").insert({
                 "nome": request.form['nome'], "email": request.form['email'], "senha": hash_senha
             }).execute()
-            flash('Inscrição confirmada. Faça autenticação.')
+            flash('Inscricao confirmada. Faca autenticacao.')
             return redirect(url_for('login'))
         except Exception as e: 
             print(f"Erro no cadastro: {e}")
-            flash('E-mail funcional já cadastrado.')
+            flash('E-mail funcional ja cadastrado.')
     return render_template('cadastro.html')
 
 @app.route('/add_escola', methods=['POST'])
