@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
 # Troque a frase abaixo pelo seu link real do Supabase (mantenha as aspas!)
-DATABASE_URL = os.environ.get("DATABASE_URL", "COLE_AQUI_A_SUA_CONNECTION_STRING_DO_SUPABASE")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL and "sslmode=" not in DATABASE_URL:
     DATABASE_URL += "?sslmode=require"
