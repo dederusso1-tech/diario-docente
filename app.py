@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
 # Troque a frase abaixo pelo seu link real do Supabase (mantenha as aspas!)
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = "postgresql://postgres:Li548423312$@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
 if DATABASE_URL and "sslmode=" not in DATABASE_URL:
     DATABASE_URL += "?sslmode=require"
