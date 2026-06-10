@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
-# Conexão direta e blindada via API Web
+# Conexão direta e blindada via API Web (Porta 443 HTTPS)
 SUPABASE_URL = "https://igzgvommpgscswqguhvo.supabase.co"
 SUPABASE_KEY = "sb_publishable_0rv-2XmhWuSOxZwgp7TcIw_6mbb-IDy"
 
@@ -23,8 +23,6 @@ def forcar_banco():
         supabase.table("professores").select("id").limit(1).execute()
         return "Banco de dados sincronizado com sucesso na nuvem!"
     except Exception as e:
-        if "relation" in str(e) or "does not exist" in str(e):
-            return "Banco de dados sincronizado com sucesso na nuvem! (Pronto para criar tabelas via painel)"
         return f"Erro real retornado pelo Supabase: {str(e)}", 500
 
 @app.route('/')
@@ -32,7 +30,8 @@ def home():
     if 'user_id' not in session: return redirect(url_for('login'))
     try:
         res = supabase.table("escolas").select("*").eq("professor_id", session['user_id']).order("nome").execute()
-        escolas = res.data
+        # Garantindo formato compatível com o index.html
+        escolas = res.data if res.data else []
     except Exception as e:
         print(f"Erro na home: {e}")
         escolas = []
@@ -46,40 +45,45 @@ def school_detail(escola_id):
     try:
         res_escola = supabase.table("escolas").select("*").eq("id", escola_id).eq("professor_id", session['user_id']).single().execute()
         escola = res_escola.data
+        if not escola:
+            return "Unidade Escolar não localizada ou Acesso Negado.", 403
     except Exception as e:
         print(f"Erro ao buscar escola: {e}")
         return "Unidade Escolar não localizada ou Acesso Negado.", 403
         
     try:
         res_diario = supabase.table("diario_bordo").select("data, conteudo").eq("escola_id", escola_id).order("data").execute()
-        datas_chamadas = res_diario.data
+        datas_chamadas = res_diario.data if res_diario.data else []
     except Exception as e:
         print(f"Erro ao buscar diario: {e}")
         datas_chamadas = []
         
-    listagem_datas = list(set([d['data'] for d in datas_chamadas]))
+    # Organiza a listagem de datas removendo duplicadas
+    listagem_datas = list(set([d['data'] for d in datas_chamadas if 'data' in d]))
     listagem_datas.sort()
-    conteudos_datas = {d['data']: d['conteudo'] for d in datas_chamadas}
+    conteudos_datas = {d['data']: d['conteudo'] for d in datas_chamadas if 'data' in d}
 
     try:
         res_alunos = supabase.table("alunos").select("*").eq("escola_id", escola_id).order("nome").execute()
-        alunos_db = res_alunos.data
+        alunos_db = res_alunos.data if res_alunos.data else []
+        
         res_notas = supabase.table("notas").select("*").eq("escola_id", escola_id).eq("bimestre", 1).execute()
-        notas_db = {n['matricula']: n for n in res_notas.data}
+        notas_db = {n['matricula']: n for n in res_notas.data if 'matricula' in n}
     except Exception as e:
         print(f"Erro ao buscar alunos/notas: {e}")
         alunos_db, notas_db = [], {}
 
     try:
         res_presencas = supabase.table("diario_bordo").select("matricula, data, status_presenca").eq("escola_id", escola_id).execute()
-        presencas_db = res_presencas.data
+        presencas_db = res_presencas.data if res_presencas.data else []
     except Exception as e:
         print(f"Erro ao buscar presencas: {e}")
         presencas_db = []
         
     mapa_presencas = {}
     for p in presencas_db:
-        mapa_presencas[(p['matricula'], p['data'])] = p['status_presenca']
+        if 'matricula' in p and 'data' in p:
+            mapa_presencas[(p['matricula'], p['data'])] = p['status_presenca']
 
     alunos_com_planilha = []
     for alu in alunos_db:
@@ -91,15 +95,21 @@ def school_detail(escola_id):
             historico_aluno.append({'data': data, 'status': status})
             
         n = notas_db.get(alu['matricula'], {})
-        teste = n.get('teste', 0.0)
-        prova = n.get('prova', 0.0)
-        qualitativo = n.get('qualitativo', 0.0)
+        teste = float(n.get('teste', 0.0) if n.get('teste') is not null else 0.0) if False else float(n.get('teste') or 0.0)
+        prova = float(n.get('prova') or 0.0)
+        qualitativo = float(n.get('qualitativo') or 0.0)
         media = (teste + prova + qualitativo) / 3
         
         alunos_com_planilha.append({
-            'matricula': alu['matricula'], 'nome': alu['nome'], 'turma': alu['turma'],
-            'teste': teste, 'prova': prova, 'qualitativo': qualitativo,
-            'media': round(media, 2), 'total_faltas': total_faltas, 'historico': historico_aluno
+            'matricula': alu['matricula'], 
+            'nome': alu['nome'], 
+            'turma': alu['turma'],
+            'teste': teste, 
+            'prova': prova, 
+            'qualitativo': qualitativo,
+            'media': round(media, 2), 
+            'total_faltas': total_faltas, 
+            'historico': historico_aluno
         })
 
     data_actual = datetime.now().strftime('%Y-%m-%d')
@@ -117,7 +127,8 @@ def fazer_chamada(escola_id):
     
     try:
         res_alunos = supabase.table("alunos").select("matricula").eq("escola_id", escola_id).execute()
-        for alu in res_alunos.data:
+        alunos = res_alunos.data if res_alunos.data else []
+        for alu in alunos:
             mat = alu['matricula']
             status = 'F' if str(mat) in faltosos else 'P'
             supabase.table("diario_bordo").insert({
@@ -177,7 +188,8 @@ def login():
     if request.method == 'POST':
         try:
             res = supabase.table("professores").select("*").eq("email", request.form['email']).execute()
-            user = res.data[0] if res.data else None
+            users = res.data if res.data else []
+            user = users[0] if users else None
             if user and check_password_hash(user['senha'], request.form['senha']):
                 session['user_id'] = user['id']
                 session['user_name'] = user['nome']
@@ -199,7 +211,7 @@ def cadastro():
             return redirect(url_for('login'))
         except Exception as e: 
             print(f"Erro no cadastro: {e}")
-            flash('E-mail funcional já cadastrado ou erro na rede.')
+            flash('E-mail funcional já cadastrado.')
     return render_template('cadastro.html')
 
 @app.route('/add_escola', methods=['POST'])
