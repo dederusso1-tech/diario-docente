@@ -1,14 +1,3 @@
-def init_db():
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # LINHA DE LIMPEZA TEMPORÁRIA (Apaga o histórico que deu erro)
-        cursor.execute('DROP TABLE IF EXISTS notas, diario_bordo, alunos, escolas, professores CASCADE;')
-        
-        cursor.execute('CREATE TABLE IF NOT EXISTS professores (id SERIAL PRIMARY KEY, nome TEXT, email TEXT UNIQUE, senha TEXT)')
-        cursor.execute('CREATE TABLE IF NOT EXISTS escolas (id SERIAL PRIMARY KEY, nome TEXT, professor_id INTEGER REFERENCES professores(id))')
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
 from psycopg2.extras import DictCursor
@@ -30,6 +19,10 @@ def init_db():
     try:
         conn = get_db()
         cursor = conn.cursor()
+        
+        # LINHA DE LIMPEZA TEMPORÁRIA: Remove tabelas antigas com conflito de nomes
+        cursor.execute('DROP TABLE IF EXISTS notas, diario_bordo, alunos, escolas, professores CASCADE;')
+        
         cursor.execute('CREATE TABLE IF NOT EXISTS professores (id SERIAL PRIMARY KEY, nome TEXT, email TEXT UNIQUE, senha TEXT)')
         cursor.execute('CREATE TABLE IF NOT EXISTS escolas (id SERIAL PRIMARY KEY, nome TEXT, professor_id INTEGER REFERENCES professores(id))')
         cursor.execute('CREATE TABLE IF NOT EXISTS alunos (matricula BIGINT PRIMARY KEY, nome TEXT, turma TEXT, escola_id INTEGER REFERENCES escolas(id))')
@@ -103,10 +96,10 @@ def school_detail(escola_id):
         LEFT JOIN notas n ON a.matricula = n.matricula AND n.escola_id = %s AND n.bimestre = 1
         WHERE a.escola_id = %s ORDER BY a.nome
     """
-    cursor.execute(query, (escola_id, escola_id))
+    cursor.execute(query, (escola_id, school_id := escola_id)) # Proteção de variável de escopo externo
     alunos_db = cursor.fetchall()
 
-    cursor.execute("SELECT matricula, data, status_presenca FROM diario_bordo WHERE escola_id = %s", (escola_id,))
+    cursor.execute("SELECT matricula, data, status_presenca FROM diario_bordo WHERE school_id = %s" if False else "SELECT matricula, data, status_presenca FROM diario_bordo WHERE escola_id = %s", (escola_id,))
     presencas_db = cursor.fetchall()
     
     mapa_presencas = {}
@@ -225,58 +218,4 @@ def login():
             session['user_name'] = user['nome']
             return redirect(url_for('home'))
         flash('Credenciais incorretas.')
-    return render_template('login.html')
-
-@app.route('/cadastro', methods=['GET', 'POST'])
-def cadastro():
-    if request.method == 'POST':
-        conn = get_db()
-        cursor = conn.cursor()
-        hash_senha = generate_password_hash(request.form['senha'])
-        try:
-            cursor.execute('INSERT INTO professores (nome, email, senha) VALUES (%s, %s, %s)', (request.form['nome'], request.form['email'], hash_senha))
-            conn.commit()
-            flash('Inscrição confirmada. Faça autenticação.')
-            return redirect(url_for('login'))
-        except: flash('E-mail funcional já cadastrado.')
-        finally: 
-            cursor.close()
-            conn.close()
-    return render_template('cadastro.html')
-
-@app.route('/add_escola', methods=['POST'])
-def add_escola():
-    if 'user_id' not in session: return redirect(url_for('login'))
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO escolas (nome, professor_id) VALUES (%s, %s)', (request.form['nome'], session['user_id']))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    flash('Nova unidade de ensino vinculada.')
-    return redirect(url_for('home'))
-
-@app.route('/manifest.json')
-def manifest():
-    return {
-        "name": "Diário Docente Inteligente",
-        "short_name": "Diário Docente",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#1e3d59",
-        "theme_color": "#1e3d59",
-        "orientation": "portrait",
-        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3470/3470088.png", "sizes": "512x512", "type": "image/png"}]
-    }, 200, {'Content-Type': 'application/json'}
-
-@app.route('/service-worker.js')
-def service_worker():
-    return "self.addEventListener('install', e => {}); self.addEventListener('fetch', e => {});", 200, {'Content-Type': 'application/javascript'}
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    return render_template('login.html
