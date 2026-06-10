@@ -11,7 +11,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
 # Troque a frase abaixo pelo seu link real do Supabase (mantenha as aspas!)
 DATABASE_URL = "postgresql://postgres.igzgvommpgscswqguhvo:Li548423312$@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&options=-c%20user_search_path%3Dpublic"
-
+# Forçar Render
 if DATABASE_URL and "sslmode=" not in DATABASE_URL:
     DATABASE_URL += "?sslmode=require"
 
