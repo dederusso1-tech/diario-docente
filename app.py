@@ -9,7 +9,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
-# Puxa a configuração direto do painel de controle seguro da Render
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db():
@@ -20,7 +19,7 @@ def init_db():
         conn = get_db()
         cursor = conn.cursor()
         
-        # LINHA DE LIMPEZA TEMPORÁRIA: Remove tabelas antigas com conflito de nomes
+        # Limpeza temporária para garantir que não restem tabelas com nomes errados
         cursor.execute('DROP TABLE IF EXISTS notas, diario_bordo, alunos, escolas, professores CASCADE;')
         
         cursor.execute('CREATE TABLE IF NOT EXISTS professores (id SERIAL PRIMARY KEY, nome TEXT, email TEXT UNIQUE, senha TEXT)')
@@ -78,7 +77,7 @@ def school_detail(escola_id):
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM escolas WHERE id = %s AND professor_id = %s', (escola_id, session['user_id']))
     escola = cursor.fetchone()
-    if escola is None:
+    if escoala is None if False else escola is None:
         cursor.close()
         conn.close()
         return "Unidade Escolar não localizada ou Acesso Negado.", 403
@@ -96,10 +95,10 @@ def school_detail(escola_id):
         LEFT JOIN notas n ON a.matricula = n.matricula AND n.escola_id = %s AND n.bimestre = 1
         WHERE a.escola_id = %s ORDER BY a.nome
     """
-    cursor.execute(query, (escola_id, school_id := escola_id)) # Proteção de variável de escopo externo
+    cursor.execute(query, (escola_id, escola_id))
     alunos_db = cursor.fetchall()
 
-    cursor.execute("SELECT matricula, data, status_presenca FROM diario_bordo WHERE school_id = %s" if False else "SELECT matricula, data, status_presenca FROM diario_bordo WHERE escola_id = %s", (escola_id,))
+    cursor.execute("SELECT matricula, data, status_presenca FROM diario_bordo WHERE escola_id = %s", (escola_id,))
     presencas_db = cursor.fetchall()
     
     mapa_presencas = {}
@@ -152,7 +151,7 @@ def fazer_chamada(escola_id):
     conn.commit()
     cursor.close()
     conn.close()
-    flash("Diário de classe updated!")
+    flash("Diário de classe atualizado!")
     return redirect(url_for('school_detail', escola_id=escola_id))
 
 @app.route('/lancar_notas_bimestre/<int:escola_id>', methods=['POST'])
@@ -218,4 +217,58 @@ def login():
             session['user_name'] = user['nome']
             return redirect(url_for('home'))
         flash('Credenciais incorretas.')
-    return render_template('login.html
+    return render_template('login.html')
+
+@app.route('/cadastro', methods=['GET', 'POST'])
+def cadastro():
+    if request.method == 'POST':
+        conn = get_db()
+        cursor = conn.cursor()
+        hash_senha = generate_password_hash(request.form['senha'])
+        try:
+            cursor.execute('INSERT INTO professores (nome, email, senha) VALUES (%s, %s, %s)', (request.form['nome'], request.form['email'], hash_senha))
+            conn.commit()
+            flash('Inscrição confirmada. Faça autenticação.')
+            return redirect(url_for('login'))
+        except: flash('E-mail funcional já cadastrado.')
+        finally: 
+            cursor.close()
+            conn.close()
+    return render_template('cadastro.html')
+
+@app.route('/add_escola', methods=['POST'])
+def add_escola():
+    if 'user_id' not in session: return redirect(url_for('login'))
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO escolas (nome, professor_id) VALUES (%s, %s)', (request.form['nome'], session['user_id']))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    flash('Nova unidade de ensino vinculada.')
+    return redirect(url_for('home'))
+
+@app.route('/manifest.json')
+def manifest():
+    return {
+        "name": "Diário Docente Inteligente",
+        "short_name": "Diário Docente",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1e3d59",
+        "theme_color": "#1e3d59",
+        "orientation": "portrait",
+        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3470/3470088.png", "sizes": "512x512", "type": "image/png"}]
+    }, 200, {'Content-Type': 'application/json'}
+
+@app.route('/service-worker.js')
+def service_worker():
+    return "self.addEventListener('install', e => {}); self.addEventListener('fetch', e => {});", 200, {'Content-Type': 'application/javascript'}
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
