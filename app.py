@@ -8,30 +8,21 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
-# Conexão oficial e blindada via API HTTPS (Porta 443)
-from supabase import create_client, Client
-
-# Conexão direta e blindada via API Web (Imune a erros de porta ou identificador)
+# Conexão direta e blindada via API Web
 SUPABASE_URL = "https://igzgvommpgscswqguhvo.supabase.co"
 SUPABASE_KEY = "sb_publishable_0rv-2XmhWuSOxZwgp7TcIw_6mbb-IDy"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 def init_db():
-    # Nota: No Supabase, as tabelas podem ser criadas direto pelo painel (SQL Editor)
-    # Mas deixamos a rota ativa para compatibilidade do seu fluxo
     return True
 
 @app.route('/init-banco-docente')
 def forcar_banco():
     try:
-        # Teste simples de conexão puxando dados da API
         supabase.table("professores").select("id").limit(1).execute()
         return "Banco de dados sincronizado com sucesso na nuvem!"
     except Exception as e:
-        # Se as tabelas ainda não existirem no painel do Supabase, ele avisará aqui
         if "relation" in str(e) or "does not exist" in str(e):
             return "Banco de dados sincronizado com sucesso na nuvem! (Pronto para criar tabelas via painel)"
         return f"Erro real retornado pelo Supabase: {str(e)}", 500
@@ -42,7 +33,8 @@ def home():
     try:
         res = supabase.table("escolas").select("*").eq("professor_id", session['user_id']).order("nome").execute()
         escolas = res.data
-    except:
+    except Exception as e:
+        print(f"Erro na home: {e}")
         escolas = []
     return render_template('index.html', escolas=escolas)
 
@@ -54,13 +46,15 @@ def school_detail(escola_id):
     try:
         res_escola = supabase.table("escolas").select("*").eq("id", escola_id).eq("professor_id", session['user_id']).single().execute()
         escola = res_escola.data
-    except:
+    except Exception as e:
+        print(f"Erro ao buscar escola: {e}")
         return "Unidade Escolar não localizada ou Acesso Negado.", 403
         
     try:
         res_diario = supabase.table("diario_bordo").select("data, conteudo").eq("escola_id", escola_id).order("data").execute()
         datas_chamadas = res_diario.data
-    except:
+    except Exception as e:
+        print(f"Erro ao buscar diario: {e}")
         datas_chamadas = []
         
     listagem_datas = list(set([d['data'] for d in datas_chamadas]))
@@ -72,13 +66,15 @@ def school_detail(escola_id):
         alunos_db = res_alunos.data
         res_notas = supabase.table("notas").select("*").eq("escola_id", escola_id).eq("bimestre", 1).execute()
         notas_db = {n['matricula']: n for n in res_notas.data}
-    except:
+    except Exception as e:
+        print(f"Erro ao buscar alunos/notas: {e}")
         alunos_db, notas_db = [], {}
 
     try:
         res_presencas = supabase.table("diario_bordo").select("matricula, data, status_presenca").eq("escola_id", escola_id).execute()
         presencas_db = res_presencas.data
-    except:
+    except Exception as e:
+        print(f"Erro ao buscar presencas: {e}")
         presencas_db = []
         
     mapa_presencas = {}
@@ -186,8 +182,8 @@ def login():
                 session['user_id'] = user['id']
                 session['user_name'] = user['nome']
                 return redirect(url_for('home'))
-        except:
-            pass
+        except Exception as e:
+            print(f"Erro no login: {e}")
         flash('Credenciais incorretas.')
     return render_template('login.html')
 
@@ -201,8 +197,9 @@ def cadastro():
             }).execute()
             flash('Inscrição confirmada. Faça autenticação.')
             return redirect(url_for('login'))
-        except: 
-            flash('E-mail funcional já cadastrado.')
+        except Exception as e: 
+            print(f"Erro no cadastro: {e}")
+            flash('E-mail funcional já cadastrado ou erro na rede.')
     return render_template('cadastro.html')
 
 @app.route('/add_escola', methods=['POST'])
@@ -211,8 +208,8 @@ def add_escola():
     try:
         supabase.table("escolas").insert({"nome": request.form['nome'], "professor_id": session['user_id']}).execute()
         flash('Nova unidade de ensino vinculada.')
-    except:
-        pass
+    except Exception as e:
+        print(f"Erro ao adicionar escola: {e}")
     return redirect(url_for('home'))
 
 @app.route('/manifest.json')
