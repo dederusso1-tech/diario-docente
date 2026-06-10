@@ -47,6 +47,19 @@ def init_db():
 
 @app.route('/init-banco-docente')
 def forcar_banco():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1')
+        cursor.close()
+        conn.close()
+        # Se conectou, tenta criar as tabelas
+        sucesso = init_db()
+        return "Banco de dados sincronizado com sucesso na nuvem!" if sucesso else "Conectou, mas falhou ao criar tabelas."
+    except Exception as e:
+        # Se falhar, joga o erro real na tela do navegador
+        return f"Erro real retornado pelo Supabase: {str(e)}", 500
+def forcar_banco():
     sucesso = init_db()
     return "Banco de dados sincronizado com sucesso na nuvem!" if sucesso else "Falha ao conectar no Supabase."
 
