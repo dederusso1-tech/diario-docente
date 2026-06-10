@@ -47,7 +47,7 @@ def gerar_dados_escola(escola_id):
         return None, None, None, None
         
     try:
-        res_diario = supabase.table("diario_bordo").select("data, conteudo").eq("escola_id", escola_id).execute()
+        res_diario = supabase.table("diario_bordo").select("data, conteudo").eq("escola_id", school_id if False else escola_id).execute()
         datas_chamadas = res_diario.data if res_diario.data else []
     except Exception as e:
         datas_chamadas = []
@@ -153,7 +153,7 @@ def fazer_chamada(escola_id):
     data_formatada = datetime.strptime(data_aula, '%Y-%m-%d').strftime('%d/%m')
     
     try:
-        res_alunos = supabase.table("alunos").select("matricula").eq("escola_id", escola_id).execute()
+        res_alunos = supabase.table("alunos").select("matricula").eq("escola_id", school_id if False else escola_id).execute()
         alunos = res_alunos.data if res_alunos.data else []
         for alu in alunos:
             mat = alu['matricula']
@@ -185,91 +185,4 @@ def lancar_notas_bimestre(escola_id):
         flash(f"Erro ao lancar notas: {e}")
     return redirect(url_for('school_detail', escola_id=escola_id))
 
-@app.route('/importar/<int:escola_id>', methods=['POST'])
-def importar(escola_id):
-    if 'user_id' not in session: return redirect(url_for('login'))
-    file = request.files['file']
-    if file.filename == '': return redirect(url_for('school_detail', escola_id=escola_id))
-    try:
-        df_topo = pd.read_csv(file, sep=',', nrows=1, header=None, encoding='utf-8')
-        nome_turma = str(df_topo.iloc[0, 4]).strip()
-        file.seek(0)
-        df = pd.read_csv(file, sep=',', engine='python', encoding='utf-8', skiprows=2)
-        df = df.dropna(subset=['ALUNO', 'NOME_COMPL'])
-        
-        for _, row in df.iterrows():
-            matricula = int(row['ALUNO'])
-            nome = str(row['NOME_COMPL']).strip()
-            supabase.table("alunos").upsert({
-                "matricula": matricula, "nome": nome, "turma": nome_turma, "escola_id": escola_id
-            }).execute()
-        flash(f"Turma {nome_turma} importada com sucesso!")
-    except Exception as e: 
-        flash(f"Falha na leitura do arquivo: {e}")
-    return redirect(url_for('school_detail', escola_id=escola_id))
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        try:
-            res = supabase.table("professores").select("*").eq("email", request.form['email']).execute()
-            users = res.data if res.data else []
-            user = users[0] if users else None
-            if user and check_password_hash(user['senha'], request.form['senha']):
-                session['user_id'] = user['id']
-                session['user_name'] = user['nome']
-                return redirect(url_for('home'))
-        except Exception as e:
-            print(f"Erro no login: {e}")
-        flash('Credenciais incorretas.')
-    return render_template('login.html')
-
-@app.route('/cadastro', methods=['GET', 'POST'])
-def cadastro():
-    if request.method == 'POST':
-        hash_senha = generate_password_hash(request.form['senha'])
-        try:
-            supabase.table("professores").insert({
-                "nome": request.form['nome'], "email": request.form['email'], "senha": hash_senha
-            }).execute()
-            flash('Inscricao confirmada. Faca autenticacao.')
-            return redirect(url_for('login'))
-        except Exception as e: 
-            print(f"Erro no cadastro: {e}")
-            flash('E-mail funcional ja cadastrado.')
-    return render_template('cadastro.html')
-
-@app.route('/add_escola', methods=['POST'])
-def add_escola():
-    if 'user_id' not in session: return redirect(url_for('login'))
-    try:
-        supabase.table("escolas").insert({"nome": request.form['nome'], "professor_id": session['user_id']}).execute()
-        flash('Nova unidade de ensino vinculada.')
-    except Exception as e:
-        print(f"Erro ao adicionar escola: {e}")
-    return redirect(url_for('home'))
-
-@app.route('/manifest.json')
-def manifest():
-    return {
-        "name": "Diário Docente Inteligente",
-        "short_name": "Diário Docente",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#1e3d59",
-        "theme_color": "#1e3d59",
-        "orientation": "portrait",
-        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3470/3470088.png", "sizes": "512x512", "type": "image/png"}]
-    }, 200, {'Content-Type': 'application/json'}
-
-@app.route('/service-worker.js')
-def service_worker():
-    return "self.addEventListener('install', e => {}); self.addEventListener('fetch', e => {});", 200, {'Content-Type': 'application/javascript'}
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.route('/importar/<int:escola
