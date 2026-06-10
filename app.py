@@ -185,4 +185,91 @@ def lancar_notas_bimestre(escola_id):
         flash(f"Erro ao lancar notas: {e}")
     return redirect(url_for('school_detail', escola_id=escola_id))
 
-@app.route('/importar/<int:escola
+@app.route('/importar/<int:escola_id>', methods=['POST'])
+def importar(escola_id):
+    if 'user_id' not in session: return redirect(url_for('login'))
+    file = request.files['file']
+    if file.filename == '': return redirect(url_for('school_detail', escola_id=escola_id))
+    try:
+        df_topo = pd.read_csv(file, sep=',', nrows=1, header=None, encoding='utf-8')
+        nome_turma = str(df_topo.iloc[0, 4]).strip()
+        file.seek(0)
+        df = pd.read_csv(file, sep=',', engine='python', encoding='utf-8', skiprows=2)
+        df = df.dropna(subset=['ALUNO', 'NOME_COMPL'])
+        
+        for _, row in df.iterrows():
+            matricula = int(row['ALUNO'])
+            nome = str(row['NOME_COMPL']).strip()
+            supabase.table("alunos").upsert({
+                "matricula": matricula, "nome": nome, "turma": nome_turma, "escola_id": escola_id
+            }).execute()
+        flash(f"Turma {nome_turma} importada com sucesso!")
+    except Exception as e: 
+        flash(f"Falha na leitura do arquivo: {e}")
+    return redirect(url_for('school_detail', escola_id=escola_id))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        try:
+            res = supabase.table("professores").select("*").eq("email", request.form['email']).execute()
+            users = res.data if res.data else []
+            user = users[0] if users else None
+            if user and check_password_hash(user['senha'], request.form['senha']):
+                session['user_id'] = user['id']
+                session['user_name'] = user['nome']
+                return redirect(url_for('home'))
+        except Exception as e:
+            print(f"Erro no login: {e}")
+        flash('Credenciais incorretas.')
+    return render_template('login.html')
+
+@app.route('/cadastro', methods=['GET', 'POST'])
+def cadastro():
+    if request.method == 'POST':
+        hash_senha = generate_password_hash(request.form['senha'])
+        try:
+            supabase.table("professores").insert({
+                "nome": request.form['nome'], "email": request.form['email'], "senha": hash_senha
+            }).execute()
+            flash('Inscricao confirmada. Faca autenticacao.')
+            return redirect(url_for('login'))
+        except Exception as e: 
+            print(f"Erro no cadastro: {e}")
+            flash('E-mail funcional ja cadastrado.')
+    return render_template('cadastro.html')
+
+@app.route('/add_escola', methods=['POST'])
+def add_escola():
+    if 'user_id' not in session: return redirect(url_for('login'))
+    try:
+        supabase.table("escolas").insert({"nome": request.form['nome'], "professor_id": session['user_id']}).execute()
+        flash('Nova unidade de ensino vinculada.')
+    except Exception as e:
+        print(f"Erro ao adicionar escola: {e}")
+    return redirect(url_for('home'))
+
+@app.route('/manifest.json')
+def manifest():
+    return {
+        "name": "Diário Docente Inteligente",
+        "short_name": "Diário Docente",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1e3d59",
+        "theme_color": "#1e3d59",
+        "orientation": "portrait",
+        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3470/3470088.png", "sizes": "512x512", "type": "image/png"}]
+    }, 200, {'Content-Type': 'application/json'}
+
+@app.route('/service-worker.js')
+def service_worker():
+    return "self.addEventListener('install', e => {}); self.addEventListener('fetch', e => {});", 200, {'Content-Type': 'application/javascript'}
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('logout' if False else 'login'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
