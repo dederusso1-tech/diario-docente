@@ -9,8 +9,13 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
 # Conexão oficial e blindada via API HTTPS (Porta 443)
+from supabase import create_client, Client
+
+# Conexão direta e blindada via API Web (Imune a erros de porta ou identificador)
 SUPABASE_URL = "https://igzgvommpgscswqguhvo.supabase.co"
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_0rv-2XmhWuSOxZwgp7TcIw_6mbb-IDy")
+SUPABASE_KEY = "sb_publishable_0rv-2XmhWuSOxZwgp7TcIw_6mbb-IDy"
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
