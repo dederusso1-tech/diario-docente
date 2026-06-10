@@ -9,11 +9,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
-# Troque a frase abaixo pelo seu link real do Supabase (mantenha as aspas!)
-DATABASE_URL = "postgresql://postgres.igzgvommpgscswqguhvo:Li548423312$@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
-if DATABASE_URL and "sslmode=" not in DATABASE_URL:
-    DATABASE_URL += "?sslmode=require"
-DATABASE_URL = "postgresql://postgres.igzgvommpgscswqguhvo:Li548423312$@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+# Puxa a configuração direto do painel de controle seguro da Render
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
 
@@ -31,7 +29,7 @@ def init_db():
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS notas (
-                id SERIAL PRIMARY KEY, matricula BIGINT, bimestre INTEGER, escola_id INTEGER REFERENCES escolas(id),
+                id SERIAL PRIMARY KEY, matricula BIGINT, bimestre INTEGER, school_id INTEGER REFERENCES escolas(id),
                 teste REAL DEFAULT 0.0, prova REAL DEFAULT 0.0, qualitativo REAL DEFAULT 0.0,
                 UNIQUE(matricula, bimestre)
             )
@@ -52,15 +50,10 @@ def forcar_banco():
         cursor.execute('SELECT 1')
         cursor.close()
         conn.close()
-        # Se conectou, tenta criar as tabelas
         sucesso = init_db()
         return "Banco de dados sincronizado com sucesso na nuvem!" if sucesso else "Conectou, mas falhou ao criar tabelas."
     except Exception as e:
-        # Se falhar, joga o erro real na tela do navegador
         return f"Erro real retornado pelo Supabase: {str(e)}", 500
-def forcar_banco():
-    sucesso = init_db()
-    return "Banco de dados sincronizado com sucesso na nuvem!" if sucesso else "Falha ao conectar no Supabase."
 
 @app.route('/')
 def home():
@@ -86,7 +79,7 @@ def school_detail(escola_id):
         conn.close()
         return "Unidade Escolar não localizada ou Acesso Negado.", 403
         
-    cursor.execute("SELECT DISTINCT data, conteudo FROM diario_bordo WHERE escola_id = %s ORDER BY data ASC", (escola_id,))
+    cursor.execute("SELECT DISTINCT data, conteudo FROM diario_bordo WHERE school_id = %s ORDER BY data ASC", (escola_id,))
     datas_chamadas = cursor.fetchall()
     listagem_datas = [d['data'] for d in datas_chamadas]
     conteudos_datas = {d['data']: d['conteudo'] for d in datas_chamadas}
@@ -96,13 +89,13 @@ def school_detail(escola_id):
                COALESCE(n.teste, 0.0) as teste, COALESCE(n.prova, 0.0) as prova, COALESCE(n.qualitativo, 0.0) as qualitativo,
                ((COALESCE(n.teste, 0.0) + COALESCE(n.prova, 0.0) + COALESCE(n.qualitativo, 0.0)) / 3) as media
         FROM alunos a
-        LEFT JOIN notas n ON a.matricula = n.matricula AND n.escola_id = %s AND n.bimestre = 1
+        LEFT JOIN notas n ON a.matricula = n.matricula AND n.school_id = %s AND n.bimestre = 1
         WHERE a.escola_id = %s ORDER BY a.nome
     """
     cursor.execute(query, (escola_id, escola_id))
     alunos_db = cursor.fetchall()
 
-    cursor.execute("SELECT matricula, data, status_presenca FROM diario_bordo WHERE escola_id = %s", (escola_id,))
+    cursor.execute("SELECT matricula, data, status_presenca FROM diario_bordo WHERE school_id = %s", (escola_id,))
     presencas_db = cursor.fetchall()
     
     mapa_presencas = {}
@@ -148,7 +141,7 @@ def fazer_chamada(escola_id):
         mat = alu['matricula']
         status = 'F' if str(mat) in faltosos else 'P'
         cursor.execute("""
-            INSERT INTO diario_bordo (matricula, data, status_presenca, conteudo, bimestre, escola_id)
+            INSERT INTO diario_bordo (matricula, data, status_presenca, conteudo, bimestre, school_id)
             VALUES (%s, %s, %s, %s, 1, %s)
         """, (mat, data_formatada, status, conteudo, escola_id))
         
@@ -170,7 +163,7 @@ def lancar_notas_bimestre(escola_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO notas (matricula, bimestre, escola_id, teste, prova, qualitativo) VALUES (%s, 1, %s, %s, %s, %s)
+        INSERT INTO notas (matricula, bimestre, school_id, teste, prova, qualitativo) VALUES (%s, 1, %s, %s, %s, %s)
         ON CONFLICT(matricula, bimestre) DO UPDATE SET teste=EXCLUDED.teste, prova=EXCLUDED.prova, qualitativo=EXCLUDED.qualitativo
     """, (mat, escola_id, teste, prova, qual))
     conn.commit()
@@ -235,44 +228,3 @@ def cadastro():
             flash('Inscrição confirmada. Faça autenticação.')
             return redirect(url_for('login'))
         except: flash('E-mail funcional já cadastrado.')
-        finally: 
-            cursor.close()
-            conn.close()
-    return render_template('cadastro.html')
-
-@app.route('/add_escola', methods=['POST'])
-def add_escola():
-    if 'user_id' not in session: return redirect(url_for('login'))
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO escolas (nome, professor_id) VALUES (%s, %s)', (request.form['nome'], session['user_id']))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    flash('Nova unidade de ensino vinculada.')
-    return redirect(url_for('home'))
-
-@app.route('/manifest.json')
-def manifest():
-    return {
-        "name": "Diário Docente Inteligente",
-        "short_name": "Diário Docente",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#1e3d59",
-        "theme_color": "#1e3d59",
-        "orientation": "portrait",
-        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/3470/3470088.png", "sizes": "512x512", "type": "image/png"}]
-    }, 200, {'Content-Type': 'application/json'}
-
-@app.route('/service-worker.js')
-def service_worker():
-    return "self.addEventListener('install', e => {}); self.addEventListener('fetch', e => {});", 200, {'Content-Type': 'application/javascript'}
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
