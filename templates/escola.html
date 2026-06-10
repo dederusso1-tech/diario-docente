@@ -4,6 +4,11 @@
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="/">Início</a></li>
         <li class="breadcrumb-item active">{{ escola.nome }}</li>
+        <div style="margin: 20px 0;">
+    <a href="/exportar_excel/{{ escola.id }}" class="btn" style="background-color: #28a745; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        📥 Baixar Planilha do 1º Bimestre (.Excel)
+    </a>
+</div>
         <div style="margin-bottom: 20px;">
     <a href="/exportar_excel/{{ escola.id }}" class="btn" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
         📥 Baixar Planilha do 1º Bimestre (.Excel)
