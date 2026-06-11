@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Diário Docente - {{ escola.nome }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; color: #333; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #1e3d59; }
+        .nav-bar { margin-bottom: 20px; padding: 10px; background: #e8eef1; border-radius: 4px; }
+        .nav-bar a { text-decoration: none; color: #1e3d59; font-weight: bold; }
+        .btn { background-color: #1e3d59; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-success { background-color: #28a745; font-weight: bold; }
+        .btn:hover { opacity: 0.9; }
+        .card { background: #fdfdfd; padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #1e3d59; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .badge-p { background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+        .badge-f { background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+        .flash-msg { background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="nav-bar">
+        <a href="/">← Voltar para o Início</a> / <strong>{{ escola.nome }}</strong>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-msg">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div style="margin: 10px 0 25px 0;">
+        <a href="/exportar_excel/{{ escola.id }}" class="btn btn-success" style="padding: 12px 20px; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+            📥 Baixar Planilha do 1º Bimestre (.Excel)
+        </a>
+    </div>
+
+    <div class="card">
+        <h2>📊 Carga de Dados (Importar Alunos via CSV)</h2>
+        <form action="/importar/{{ escola.id }}" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required style="padding: 5px;">
+            <button type="submit" class="btn">Carregar Turma</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>📝 Registrar Frequência (Chamada Diária)</h2>
+        <form action="/fazer_chamada/{{ escola.id }}" method="POST">
+            <label><strong>Data da Aula:</strong></label>
+            <input type="date" name="data_aula" value="{{ data_hoje }}" required style="padding: 5px; margin-right: 15px;">
+            
+            <label><strong>Conteúdo Lecionado:</strong></label>
+            <input type="text" name="conteudo" placeholder="Ex: Equações do 2º Grau" required style="padding: 5px; width: 40%; margin-right: 15px;">
+            
+            <button type="submit" class="btn">Salvar Chamada</button>
+            <br><br>
+            <p style="margin-bottom: 5px; color: #666;"><em>Marque a caixa APENAS para os alunos que faltaram (FALTA):</em></p>
+            
+            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white;">
+                {% for alu in alunos %}
+                <div style="padding: 5px 0; border-bottom: 1px dashed #eee;">
+                    <input type="checkbox" name="falta_aluno" value="{{ alu.matricula }}" id="f_{{ alu.matricula }}">
+                    <label style="color: #dc3545; font-weight: bold; margin-right: 10px;" for="f_{{ alu.matricula }}">[ FALTA ]</label>
+                    <span>{{ alu.nome }} ({{ alu.turma }})</span>
+                </div>
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+
+    <h2>📋 Consolidação de Notas e Frequência</h2>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Matrícula</th>
+                    <th>Nome do Aluno</th>
+                    <th>Turma</th>
+                    <th style="width: 80px;">Teste</th>
+                    <th style="width: 80px;">Prova</th>
+                    <th style="width: 80px;">Qualit.</th>
+                    <th>Média</th>
+                    <th>Faltas</th>
+                    {% for dt in datas %}
+                    <th style="font-size: 11px; text-align: center;" title="{{ conteudos.get(dt, '') }}">{{ dt }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for alu in alunos %}
+                <tr>
+                    <td>{{ alu.matricula }}</td>
+                    <td><strong>{{ alu.nome }}</strong></td>
+                    <td><span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 12px;">{{ alu.turma }}</span></td>
+                    
+                    <form action="/lancar_notas_bimestre/{{ escola.id }}" method="POST">
+                        <input type="hidden" name="matricula" value="{{ alu.matricula }}">
+                        <td><input type="number" step="0.1" name="teste" value="{{ alu.teste }}" style="width: 50px; padding: 3px;" onchange="this.form.submit()"></td>
+                        <td><input type="number" step="0.1" name="prova" value="{{ alu.prova }}" style="width: 50px; padding: 3px;" onchange="this.form.submit()"></td>
+                        <td><input type="number" step="0.1" name="qualitativo" value="{{ alu.qualitativo }}" style="width: 50px; padding: 3px;" onchange="this.form.submit()"></td>
+                    </form>
+                    
+                    <td><strong>{{ alu.media }}</strong></td>
+                    <td style="text-align: center; color: #dc3545; font-weight: bold;">{{ alu.total_faltas }}</td>
+                    
+                    {% for hist in alu.historico %}
+                    <td style="text-align: center;">
+                        {% if hist.status == 'P' %}
+                        <span class="badge-p">P</span>
+                        {% elif hist.status == 'F' %}
+                        <span class="badge-f">F</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>
