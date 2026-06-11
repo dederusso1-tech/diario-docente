@@ -9,8 +9,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chave_secreta_padrao_seeduc")
 
-SUPABASE_URL = "https://igzgvommpgscswqguhvo.supabase.co"
-SUPABASE_KEY = "sb_publishable_0rv-2XmhWuSOxZwgp7TcIw_6mbb-IDy"
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route('/')
