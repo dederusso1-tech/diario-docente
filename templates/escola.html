@@ -10,7 +10,7 @@
         .nav-bar { margin-bottom: 20px; padding: 10px; background: #e8eef1; border-radius: 4px; }
         .nav-bar a { text-decoration: none; color: #1e3d59; font-weight: bold; }
         .btn { background-color: #1e3d59; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn-success { background-color: #28a745; font-weight: bold; }
+        .btn-success { background-color: #28a745; font-weight: bold; color: white !important; }
         .btn:hover { opacity: 0.9; }
         .card { background: #fdfdfd; padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
@@ -37,8 +37,8 @@
       {% endif %}
     {% endwith %}
 
-    <div style="margin: 10px 0 25px 0;">
-        <a href="/exportar_excel/{{ escola.id }}" class="btn btn-success" style="padding: 12px 20px; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+    <div style="margin: 15px 0 30px 0; display: block;">
+        <a href="/exportar_excel/{{ escola.id }}" class="btn btn-success" style="padding: 15px 25px; font-size: 18px; text-decoration: none; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: inline-block;">
             📥 Baixar Planilha do 1º Bimestre (.Excel)
         </a>
     </div>
