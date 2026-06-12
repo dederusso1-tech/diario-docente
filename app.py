@@ -2,38 +2,38 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Configuração da página para telemóvel
-st.set_page_config(page_title="CIEP 205 - Diário", page_icon="🏫", layout="centered")
+st.set_page_config(page_title="Diário Docente - CIEP 205", page_icon="🏫")
 
 st.title("🏫 Diário Docente - CIEP 205")
-st.subheader("Painel do Conselho de Classe")
-st.write("Baixe o arquivo `.csv` do sistema e envie aqui para gerar o Excel.")
+st.subheader("Fechamento de Bimestre — Conselho de Classe")
 
-# Caixa para o professor selecionar o arquivo pelo telemóvel ou PC
-arquivo_enviado = st.file_uploader("Selecione o arquivo Diário de Classe (.csv)", type=["csv"])
+arquivo_enviado = st.file_uploader("Importe a planilha .csv da SEEDUC abaixo:", type=["csv"])
 
 if arquivo_enviado is not None:
     try:
-        # Lê o arquivo ignorando os erros de linhas com tamanhos diferentes
+        # Lê o arquivo pulando linhas com erro de colunas (como cabeçalhos extras)
         df_notas = pd.read_csv(arquivo_enviado, sep=",", on_bad_lines='skip', encoding="utf-8-sig")
         st.success("✅ Arquivo processado com sucesso!")
         
-        # Cria o arquivo Excel na memória do servidor
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            df_notas.to_excel(writer, index=False, sheet_name="Fechamento_Bimestre")
-        buffer.seek(0)
+        # Mostra uma prévia dos dados na tela
+        st.dataframe(df_notas.head(10))
         
-        # Botão para o professor descarregar o Excel formatado
+        # Cria o arquivo Excel na memória para download
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_notas.to_excel(writer, index=False, sheet_name="Fechamento_Bimestre")
+        
         st.download_button(
-            label="📥 Baixar Excel para o Conselho",
-            data=buffer,
+            label="📊 Baixar Planilha Consolidada para o Excel",
+            data=output.getvalue(),
             file_name="Consolidado_Bimestre_CIEP_205.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         
     except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo: {e}")
+        st.error(f"Erro ao processar o arquivo: {e}")
+else:
+    st.info("Nenhum estudante matriculado nesta visualização. Importe a planilha acima para gerar o Excel.")
 
-st.caption("Desenvolvido para automação da gestão escolar do CIEP 205 Frei Agostinho Fíncias.")
+st.markdown("---")
+st.caption("Desenvolvido para gerenciamento interno • CIEP 205 Frei Agostinho Fíncias")
