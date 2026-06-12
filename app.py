@@ -15,7 +15,7 @@ arquivo_enviado = st.file_uploader("Selecione o arquivo Diário de Classe (.csv)
 if arquivo_enviado is not None:
     try:
         # Lê os dados enviados com o separador correto de ponto e vírgula
-        df_notas = pd.read_csv(arquivo_enviado, sep=",", encoding="utf-8-sig")
+        df_notas = pd.read_csv(arquivo_enviado, sep=None, engine='python', on_bad_lines='skip', encoding="utf-8-sig")
         
         st.success("✅ Arquivo processado com sucesso!")
         
